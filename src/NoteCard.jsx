@@ -98,226 +98,167 @@ export default function NoteCard({
       source: (searchTerm, renderList) => {
         const list = suggestionsRef.current || [];
         if (!searchTerm) {
-          renderList(list.slice(0, 5), searchTerm);
-          return;
+          renderList(list, searchTerm);
+        } else {
+          const matches = list.filter((item) =>
+            item.value.toLowerCase().includes(searchTerm.toLowerCase()),
+          );
+          renderList(matches, searchTerm);
         }
-        const matches = list
-          .filter((item) => item.value.toLowerCase().includes(searchTerm.toLowerCase()))
-          .slice(0, 5);
-        renderList(matches, searchTerm);
+      },
+      renderItem: (item) => {
+        return `<div>${item.value}</div>`;
+      },
+      onSelect: (item, insertItem) => {
+        insertItem(item);
       },
     };
 
     const quill = new Quill(editorRef.current, {
       theme: 'snow',
       modules: {
-        toolbar: `#${toolbarId}`,
+        toolbar: {
+          container: `#${toolbarId}`,
+        },
         mention: mentionModule,
-        history: { delay: 300, userOnly: true },
+        keyboard: {
+          bindings: {
+            // ... existing bindings if any
+          }
+        }
       },
-      placeholder: 'Start typing…',
+      placeholder: 'Type something...',
     });
 
     quillRef.current = quill;
 
-    if (content) {
-      quill.clipboard.dangerouslyPasteHTML(content);
-      lastValue.current = content;
-    }
+    quill.root.addEventListener('click', (event) => {
+      if (event.target.classList.contains('mention')) {
+        const mentionId = event.target.dataset.id;
+        if (mentionId && onNavigateLink) {
+          onNavigateLink(mentionId);
+        }
+      }
+    });
 
-    const handleChange = () => {
-      const html = quill.root.innerHTML;
-      lastValue.current = html;
-      onChangeContent?.(html);
-    };
-
-    quill.on('text-change', handleChange);
-
-    return () => {
-      quill.off('text-change', handleChange);
-      quillRef.current = null;
-    };
-  }, [content, onChangeContent, toolbarId]);
+    quill.on('text-change', (delta, oldDelta, source) => {
+      if (source === 'user') {
+        const html = quill.root.innerHTML;
+        if (html !== lastValue.current) {
+          lastValue.current = html;
+          onChangeContent?.(html);
+        }
+      }
+    });
+  }, [toolbarId, onNavigateLink, onChangeContent]);
 
   useEffect(() => {
-    if (!quillRef.current) return;
-    const nextValue = content || '<p><br/></p>';
-    if (nextValue === lastValue.current) return;
-    const selection = quillRef.current.getSelection();
-    quillRef.current.setContents([]);
-    quillRef.current.clipboard.dangerouslyPasteHTML(nextValue);
-    lastValue.current = nextValue;
-    if (selection) {
-      quillRef.current.setSelection(selection.index, selection.length, Quill.sources.SILENT);
+    if (quillRef.current && content !== lastValue.current) {
+      const selection = quillRef.current.getSelection();
+      quillRef.current.root.innerHTML = content || '';
+      lastValue.current = content || '';
+      if (selection) {
+        quillRef.current.setSelection(selection); // Attempt to restore selection
+      }
     }
   }, [content]);
 
-  useEffect(() => {
-    if (!editorRef.current || !onNavigateLink) return;
-    const root = editorRef.current.querySelector('.ql-editor');
-    if (!root) return;
-    const handleClick = (event) => {
-      const mention = event.target.closest('.ql-mention');
-      if (mention) {
-        event.preventDefault();
-        const noteId = mention.dataset.id;
-        if (noteId) {
-          onNavigateLink(noteId);
-        }
-      }
-    };
-    root.addEventListener('click', handleClick);
-    return () => root.removeEventListener('click', handleClick);
-  }, [onNavigateLink]);
+  const handleResizeStart = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = sizeRef.current.width;
+    const startHeight = sizeRef.current.height;
 
-  const handleResizeStart = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const { width, height } = sizeRef.current;
-
-    const handleMove = (moveEvent) => {
-      const nextWidth = Math.max(MIN_WIDTH, width + (moveEvent.clientX - startX));
-      const nextHeight = Math.max(MIN_HEIGHT, height + (moveEvent.clientY - startY));
-      const updated = { width: nextWidth, height: nextHeight };
-      sizeRef.current = updated;
-      setLocalSize(updated);
+    const handleMouseMove = (moveEvent) => {
+      const newWidth = Math.max(MIN_WIDTH, startWidth + (moveEvent.clientX - startX));
+      const newHeight = Math.max(MIN_HEIGHT, startHeight + (moveEvent.clientY - startY));
+      setLocalSize({ width: newWidth, height: newHeight });
     };
 
-    const handleUp = () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
       onResize?.(sizeRef.current);
     };
 
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp, { once: true });
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
   };
-
-  const classes = [
-    'note-card',
-    isCollapsed ? 'note-card--collapsed' : '',
-    isSelected ? 'note-card--selected' : '',
-    isSearchMatch ? 'note-card--match' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
 
   return (
     <div
-      className={classes}
-      style={{ backgroundColor: color, width: localSize.width, minHeight: localSize.height }}
-      onMouseDown={() => onSelect?.(id)}
-      onContextMenu={(event) => onContextMenu?.(event, id)}
+      className={`whiteboard-card ${isSelected ? 'selected' : ''}`}
+      style={{
+        width: isCollapsed ? 280 : localSize.width,
+        height: isCollapsed ? 'auto' : localSize.height,
+        backgroundColor: color,
+        opacity: isSearchMatch ? 1 : isSearchMatch === false ? 0.6 : 1,
+      }}
+      onClick={() => onSelect?.()}
+      onContextMenu={(e) => onContextMenu?.(e)}
     >
-      <div className="note-card__header">
+      <div className="whiteboard-card-header">
         <input
-          className="note-card__title"
+          className="whiteboard-card-title"
           value={localTitle}
           placeholder="Untitled Note"
           onChange={(event) => {
             setLocalTitle(event.target.value);
             onChangeTitle?.(event.target.value);
           }}
+          onClick={(e) => e.stopPropagation()}
         />
-        <div className="note-card__meta-row">
-          <select
-            className="note-card__select"
-            value={folder}
-            onChange={(event) => onChangeFolder?.(event.target.value)}
-          >
-            {availableFolders.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          <select
-            className="note-card__select"
-            value={status}
-            onChange={(event) => onStatusChange?.(event.target.value)}
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="note-card__actions">
+        <div style={{ display: 'flex', gap: 6 }}>
           <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setShowPalette((prev) => !prev);
-            }}
+             type="button"
+             style={{ border: 'none', background: 'transparent', cursor: 'pointer', opacity: 0.4 }}
+             onClick={(e) => {
+                e.stopPropagation();
+                setShowPalette(!showPalette);
+             }}
           >
-            🎨
+             🎨
           </button>
           {showPalette && (
-            <div className="note-card__palette" onMouseLeave={() => setShowPalette(false)}>
-              {CARD_COLORS.map((swatch) => (
-                <button
-                  type="button"
-                  key={swatch}
-                  className={color === swatch ? 'is-selected' : ''}
-                  style={{ backgroundColor: swatch }}
-                  onClick={() => {
-                    onColorChange?.(swatch);
-                    setShowPalette(false);
-                  }}
-                />
-              ))}
-            </div>
+             <div 
+               style={{ 
+                 position: 'absolute', top: 40, right: 10, background: 'white', 
+                 padding: 8, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', 
+                 display: 'grid', gridTemplateColumns: 'repeat(4, 24px)', gap: 4, zIndex: 100 
+               }}
+               onMouseLeave={() => setShowPalette(false)}
+             >
+                {CARD_COLORS.map(c => (
+                  <button 
+                    key={c} 
+                    onClick={() => { onColorChange(c); setShowPalette(false); }}
+                    style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: '1px solid #ddd', cursor: 'pointer' }} 
+                  />
+                ))}
+             </div>
           )}
           <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggleCollapse?.(!isCollapsed);
-            }}
+             type="button"
+             style={{ border: 'none', background: 'transparent', cursor: 'pointer', opacity: 0.4 }}
+             onClick={(e) => {
+                e.stopPropagation();
+                onDelete?.();
+             }}
           >
-            {isCollapsed ? 'Expand' : 'Minimize'}
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onDuplicate?.();
-            }}
-          >
-            Duplicate
-          </button>
-          <button
-            type="button"
-            className="danger"
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete?.();
-            }}
-          >
-            Delete
+             ✕
           </button>
         </div>
       </div>
 
       {!isCollapsed && (
-        <>
-          <div className="ql-toolbar ql-snow note-card__toolbar" id={toolbarId}>
+        <div className="whiteboard-card-body">
+          <div className="ql-toolbar ql-snow" id={toolbarId} style={{ border: 'none', padding: '0 0 8px', borderBottom: '1px solid #f0f0f0' }}>
             <span className="ql-formats">
               <button className="ql-bold" />
               <button className="ql-italic" />
               <button className="ql-underline" />
-              <button className="ql-strike" />
-            </span>
-            <span className="ql-formats">
-              <select className="ql-header" defaultValue="">
-                <option value="">Normal text</option>
-                <option value="1">Heading 1</option>
-                <option value="2">Heading 2</option>
-                <option value="3">Heading 3</option>
-              </select>
             </span>
             <span className="ql-formats">
               <button className="ql-list" value="bullet" />
@@ -325,35 +266,35 @@ export default function NoteCard({
               <button className="ql-list" value="check" />
             </span>
             <span className="ql-formats">
-              <button className="ql-blockquote" />
-            </span>
-            <span className="ql-formats">
-              <button className="ql-link" />
-              <button className="ql-image" />
-            </span>
-            <span className="ql-formats">
-              <select className="ql-background" defaultValue="">
-                {HIGHLIGHT_COLORS.map((swatch) => (
-                  <option key={swatch || 'none'} value={swatch} />
-                ))}
+              <select className="ql-header" defaultValue="">
+                <option value="">Normal</option>
+                <option value="1">H1</option>
+                <option value="2">H2</option>
               </select>
             </span>
-            <span className="ql-formats">
-              <button className="ql-clean" />
-            </span>
           </div>
-
-          <div className="note-card__editor-wrapper" style={{ minHeight: localSize.height - 140 }}>
-            <div ref={editorRef} className="note-card__editor ql-snow" />
+          <div className="whiteboard-editor-wrapper">
+            <div ref={editorRef} style={{ fontSize: 14, lineHeight: 1.6, flex: 1 }} />
           </div>
-        </>
+        </div>
       )}
 
-      <div className="note-card__footer">
-        <span>Ctrl/Cmd + B / I / U for quick formatting</span>
-        <button type="button" className="note-card__resize" onMouseDown={handleResizeStart} />
-      </div>
+      {!isCollapsed && (
+        <div 
+          className="note-card__resize" 
+          onMouseDown={handleResizeStart} 
+          style={{ 
+            position: 'absolute', 
+            bottom: 0, 
+            right: 0, 
+            width: 20, 
+            height: 20, 
+            cursor: 'se-resize', 
+            background: 'linear-gradient(135deg, transparent 50%, #ddd 50%)',
+            borderBottomRightRadius: 12
+          }} 
+        />
+      )}
     </div>
   );
 }
-

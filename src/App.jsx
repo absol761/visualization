@@ -9,6 +9,7 @@ import ReactFlow, {
   ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import './ProTheme.css';
 import './App.css';
 import NoteCard from './NoteCard';
 import Landing from './Landing';
@@ -897,317 +898,195 @@ function StudentWorkspace() {
   );
 
   return (
-    <div className="app-shell">
-      <header className="top-bar">
-        <div className="top-bar__left">
-          <button type="button" className="ghost-btn" aria-label="Menu">
-            ☰
-          </button>
-          <span className="top-bar__title">My Notes</span>
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={() => handleCreateNote()}
-          >
-            + New Note
-          </button>
-          <button type="button" className="ghost-btn" onClick={() => setShowTemplates(true)}>
-            Templates
-          </button>
+    <div className="pro-layout">
+      {/* Floating Sidebar Dock */}
+      <nav className={`floating-sidebar ${!isCommandPaletteOpen ? '' : 'collapsed'}`}>
+        <div className="sidebar-brand">
+          <div style={{ width: 24, height: 24, background: 'linear-gradient(135deg, #3B82F6, #8B5CF6)', borderRadius: 6 }}></div>
+          Infinite Notes
         </div>
-        <div className="top-bar__center">
-          <div className="top-bar__search">
-            <input
-              ref={searchInputRef}
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search notes or type @ to link"
-            />
-          </div>
-          <div className="top-bar__inspiration">
-            <div>
-              <span className="inspiration-pill__label">Spark</span>
-              <p className="inspiration-pill__quote">“{inspiration.content}”</p>
-              {inspiration.author && <span className="inspiration-pill__author">— {inspiration.author}</span>}
-            </div>
-            <button type="button" className="tiny-btn" onClick={refreshInspiration} title="Refresh inspiration quote">
-              ↻
-            </button>
-          </div>
-          <button
-            type="button"
-            className="ghost-btn command-btn"
-            onClick={() => setCommandPaletteOpen(true)}
-            title="Command palette (Ctrl/Cmd + K)"
-          >
-            ⌘K Command
-          </button>
-          <div className="view-toggle">
-            <button
-              type="button"
-              className={viewMode === 'canvas' ? 'is-active' : ''}
-              onClick={() => setViewMode('canvas')}
-            >
-              Canvas
-            </button>
-            <button
-              type="button"
-              className={viewMode === 'list' ? 'is-active' : ''}
-              onClick={() => setViewMode('list')}
-            >
-              List
-            </button>
-            <button
-              type="button"
-              className={viewMode === 'board' ? 'is-active' : ''}
-              onClick={() => setViewMode('board')}
-            >
-              Board
-            </button>
-          </div>
-        </div>
-        <div className="top-bar__right">
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={snapToGrid}
-              onChange={(event) => setSnapToGrid(event.target.checked)}
-            />
-            <span>Snap to grid</span>
-          </label>
-          <span className={`autosave-indicator ${isSaving ? 'is-saving' : 'is-saved'}`}>
-            {isSaving ? 'Saving…' : 'Saved'}
-          </span>
-          <div className="avatar-chip">@Student</div>
-        </div>
-      </header>
 
-      <section className="workspace-utilities">
-        <div className="daily-note-card">
-          <div className="daily-note-card__header">
-            <div>
-              <h3>Today’s note</h3>
-              <p>{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-            </div>
-            <div className="daily-note-card__actions">
-              <button type="button" onClick={appendDailyNoteToCanvas} disabled={!dailyNote.trim()}>
-                Drop on canvas
-              </button>
-              <button type="button" className="ghost-btn" onClick={() => setDailyNote('')}>
-                Clear
-              </button>
-            </div>
+        <div className="sidebar-nav">
+          <button className="nav-item active">
+            <span>⊞</span> All Notes
+          </button>
+          <button className="nav-item">
+            <span>☆</span> Favorites
+          </button>
+          <button className="nav-item" onClick={() => setShowTemplates(true)}>
+            <span>⊕</span> Templates
+          </button>
+        </div>
+
+        <div style={{ height: 1, background: 'var(--border-subtle)', margin: '8px 0' }}></div>
+
+        <div className="sidebar-nav" style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ padding: '0 12px', fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', marginBottom: 8 }}>
+            FOLDERS
           </div>
-          <textarea
-            value={dailyNote}
-            onChange={(event) => setDailyNote(event.target.value)}
-            placeholder="Capture intent, wins, or reminders for today. Keep it here or drop it onto the canvas when ready."
+          {folderOptions.map((folder) => (
+            <button
+              key={folder}
+              className={`nav-item ${activeFolder === folder ? 'active' : ''}`}
+              onClick={() => setActiveFolder(folder)}
+            >
+              <span style={{ opacity: 0.6 }}>📁</span>
+              {folder}
+              <span style={{ marginLeft: 'auto', opacity: 0.4, fontSize: 12 }}>{folderCounts[folder] || 0}</span>
+            </button>
+          ))}
+          <button className="nav-item" style={{ color: 'var(--accent-blue)' }} onClick={handleAddFolder}>
+            + New Folder
+          </button>
+        </div>
+      </nav>
+
+      {/* Top Right Status & Search */}
+      <div className="status-bar">
+        <div className="status-pill" style={{ cursor: 'text' }} onClick={focusSearchInput}>
+          <span style={{ opacity: 0.5 }}>🔍</span>
+          <input 
+            ref={searchInputRef}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search..." 
+            style={{ border: 'none', background: 'transparent', outline: 'none', width: 120, fontSize: 13 }}
           />
+          <kbd style={{ opacity: 0.4, fontSize: 10 }}>/</kbd>
         </div>
-      </section>
-
-      <div className="layout">
-        <aside className="sidebar">
-          <div className="sidebar__header">
-            <h3>Folders</h3>
-            <button type="button" onClick={handleAddFolder}>
-              + New
-            </button>
-          </div>
-          <div className="folder-list">
-            {folderOptions.map((folder) => (
-              <button
-                type="button"
-                key={folder}
-                className={`folder-item ${activeFolder === folder ? 'is-active' : ''}`}
-                onClick={() => setActiveFolder(folder)}
-              >
-                <span>{folder}</span>
-                <span className="folder-item__count">{folderCounts[folder] || 0}</span>
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        <main className="workspace">
-          {viewMode === 'canvas' && (
-            <div className="canvas-wrapper">
-              {searchTerm && (
-                <div className="search-results">
-                  {searchMatches.length === 0 ? (
-                    <p>No notes match “{searchTerm}”.</p>
-                  ) : (
-                    searchMatches.map((match) => (
-                      <button
-                        type="button"
-                        key={match.id}
-                        className="search-result"
-                        onClick={() => focusNote(match.id)}
-                      >
-                        <strong>{match.title}</strong>
-                        <span>{match.snippet}</span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-              <div className="canvas-area">
-                <ReactFlow
-                  nodes={flowNodes}
-                  edges={edges}
-                  nodeTypes={nodeTypes}
-                  onConnect={handleConnect}
-                  onEdgesDelete={handleEdgesDelete}
-                  onNodesDelete={handleNodesDelete}
-                  onNodeDragStop={handleNodeDragStop}
-                  onPaneDoubleClick={handlePaneDoubleClick}
-                  snapToGrid={snapToGrid}
-                  snapGrid={[20, 20]}
-                  minZoom={0.4}
-                  maxZoom={1.8}
-                  defaultViewport={{ x: 0, y: 0, zoom: 0.9 }}
-                  panOnScroll
-                  panOnDrag={[1, 2]}
-                  zoomActivationKeyCode="Meta"
-                  nodeDragThreshold={4}
-                  proOptions={{ hideAttribution: true }}
-                  fitView
-                  fitViewOptions={{ padding: 0.2 }}
-                >
-                  <MiniMap />
-                  <Controls />
-                  <Background gap={20} color="#E0E0E0" />
-                </ReactFlow>
-              </div>
-            </div>
-          )}
-
-          {viewMode === 'list' && (
-            <ListView
-              notes={listViewNotes}
-              onOpenNote={focusNote}
-              onDuplicate={handleDuplicateNote}
-            />
-          )}
-
-          {viewMode === 'board' && (
-            <BoardView
-              columns={boardColumns}
-              onOpenNote={focusNote}
-              onStatusChange={(noteId, status) => handleNoteChange(noteId, { status })}
-            />
-          )}
-        </main>
-
-        <aside className="backlink-panel">
-          <div className="backlink-panel__header">
-            <h3>Backlinks</h3>
-          </div>
-          {selectedNote ? (
-            <>
-              <div className="backlink-panel__note">
-                <h4>{selectedNote.title || 'Untitled Note'}</h4>
-                <p>{selectedNote.folder}</p>
-              </div>
-              <div className="backlink-panel__section">
-                <h5>Linked from ({selectedBacklinks.length})</h5>
-                {selectedBacklinks.length === 0 && <p className="muted-text">No backlinks yet.</p>}
-                {selectedBacklinks.map((link) => (
-                  <button
-                    type="button"
-                    key={link.id}
-                    className="backlink-chip"
-                    onClick={() => focusNote(link.id)}
-                  >
-                    <strong>{link.title}</strong>
-                    <span>{link.snippet}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="backlink-panel__section">
-                <h5>Connections ({connectedNotes.length})</h5>
-                {connectedNotes.length === 0 && <p className="muted-text">No lines drawn yet.</p>}
-                {connectedNotes.map((note) => (
-                  <button
-                    type="button"
-                    key={note.id}
-                    className="backlink-chip"
-                    onClick={() => focusNote(note.id)}
-                  >
-                    <strong>{note.title || 'Untitled Note'}</strong>
-                    <span>{note.folder}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p className="muted-text">Select a note to see backlinks and connections.</p>
-          )}
-        </aside>
+        <div className="status-pill">
+          {isSaving ? 'Saving...' : 'Saved'}
+        </div>
+        <button className="status-pill" onClick={() => setCommandPaletteOpen(true)} style={{ cursor: 'pointer' }}>
+          ⌘K
+        </button>
       </div>
 
+      {/* Main Canvas Area */}
+      {viewMode === 'canvas' ? (
+        <div className="full-canvas">
+          <ReactFlow
+            nodes={flowNodes}
+            edges={edges}
+            onNodesChange={(changes) => {
+               // Standard ReactFlow change handler
+            }}
+            onEdgesChange={(changes) => {
+               // Standard ReactFlow change handler
+            }}
+            onConnect={handleConnect}
+            nodeTypes={nodeTypes}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            minZoom={0.1}
+            maxZoom={2}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            proOptions={{ hideAttribution: true }}
+            onPaneClick={() => setSelectedNoteId(null)}
+            onPaneContextMenu={(event) => {
+              event.preventDefault();
+              setContextMenu({
+                x: event.clientX,
+                y: event.clientY,
+                type: 'canvas',
+              });
+            }}
+            onPaneDoubleClick={handlePaneDoubleClick}
+            onNodeDragStop={handleNodeDragStop}
+            onNodesDelete={handleNodesDelete}
+            onEdgesDelete={handleEdgesDelete}
+            panOnScroll
+            selectionOnDrag
+            panOnDrag={[1, 2]}
+            selectionMode="partial"
+            snapToGrid={snapToGrid}
+            snapGrid={[20, 20]}
+          >
+            <Background color="#D1D5DB" gap={24} size={1} />
+            <Controls showInteractive={false} />
+            <MiniMap
+              nodeColor={(node) => {
+                return node.data.note.color || '#fff';
+              }}
+              maskColor="rgba(240, 240, 240, 0.6)"
+            />
+          </ReactFlow>
+        </div>
+      ) : (
+        <div className="workspace" style={{ padding: '80px 40px 40px', maxWidth: 1200, margin: '0 auto', overflowY: 'auto' }}>
+           {viewMode === 'list' && <ListView notes={listViewNotes} onOpenNote={focusNote} onDuplicate={handleDuplicateNote} />}
+           {viewMode === 'board' && (
+              <BoardView
+                columns={boardColumns}
+                onOpenNote={focusNote}
+                onStatusChange={(id, status) => handleNoteChange(id, { status })}
+              />
+            )}
+        </div>
+      )}
+
+      {/* Floating Bottom Dock */}
+      <div className="floating-dock">
+        <button className="dock-btn primary" onClick={() => handleCreateNote()} title="New Note">
+          +
+        </button>
+        <div style={{ width: 1, background: 'var(--border-subtle)', margin: '0 4px' }}></div>
+        <button className={`dock-btn ${viewMode === 'canvas' ? 'active' : ''}`} onClick={() => setViewMode('canvas')} title="Canvas View">
+          ∷
+        </button>
+        <button className={`dock-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')} title="List View">
+          ≣
+        </button>
+        <button className={`dock-btn ${viewMode === 'board' ? 'active' : ''}`} onClick={() => setViewMode('board')} title="Board View">
+          ☷
+        </button>
+      </div>
+
+      {/* Context Menu & Modals */}
       {contextMenu && (
         <div
           className="context-menu"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onClick={(event) => event.stopPropagation()}
+          style={{
+            position: 'absolute',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            zIndex: 1000,
+          }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <button type="button" onClick={() => handleDuplicateNote(contextMenu.noteId)}>
-            Duplicate
-          </button>
-          <div className="context-menu__section">
-            <p>Card color</p>
-            <div className="context-menu__colors">
-              {NOTE_COLORS.map((color) => (
-                <button
-                  type="button"
-                  key={color}
-                  style={{ backgroundColor: color }}
-                  onClick={() => handleNoteChange(contextMenu.noteId, { color })}
-                  aria-label={`Set ${color} background`}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="context-menu__section">
-            <p>Move to folder</p>
-            <select
-              value={notes.find((note) => note.id === contextMenu.noteId)?.folder || 'All Notes'}
-              onChange={(event) => handleNoteChange(contextMenu.noteId, { folder: event.target.value })}
-            >
-              {folderOptions.map((folder) => (
-                <option key={folder} value={folder}>
-                  {folder}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button type="button" onClick={() => handleExportNote(contextMenu.noteId)}>
-            Export as PDF
-          </button>
-          <button
-            type="button"
-            className="danger"
-            onClick={() => {
-              handleDeleteNote(contextMenu.noteId);
+          {contextMenu.type === 'canvas' ? (
+            <button onClick={() => {
+              handleCreateNote({ position: { x: contextMenu.x, y: contextMenu.y } });
               setContextMenu(null);
-            }}
-          >
-            Delete
-          </button>
+            }}>
+              Create Note Here
+            </button>
+          ) : (
+            <>
+              <button onClick={() => {
+                handleDuplicateNote(contextMenu.noteId);
+                setContextMenu(null);
+              }}>Duplicate</button>
+              <button onClick={() => {
+                handleDeleteNote(contextMenu.noteId);
+                setContextMenu(null);
+              }} className="danger">Delete</button>
+            </>
+          )}
         </div>
       )}
+
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        commands={commandPaletteCommands}
+      />
 
       <TemplatesModal
         isOpen={showTemplates}
         templates={NOTE_TEMPLATES}
         onUseTemplate={handleUseTemplate}
         onClose={() => setShowTemplates(false)}
-      />
-      <CommandPalette
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-        commands={commandPaletteCommands}
       />
     </div>
   );
@@ -1251,4 +1130,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-
