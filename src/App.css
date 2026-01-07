@@ -55,6 +55,63 @@
   background: #ffffff;
 }
 
+.top-bar__center {
+  flex-wrap: wrap;
+}
+
+.top-bar__inspiration {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: rgba(33, 150, 243, 0.08);
+  border: 1px solid rgba(33, 150, 243, 0.25);
+  min-width: 220px;
+  max-width: 360px;
+}
+
+.inspiration-pill__label {
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0d47a1;
+}
+
+.inspiration-pill__quote {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #0d47a1;
+}
+
+.inspiration-pill__author {
+  font-size: 11px;
+  color: #415a77;
+}
+
+.tiny-btn {
+  border: none;
+  background: rgba(33, 150, 243, 0.2);
+  color: #0d47a1;
+  border-radius: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.command-btn {
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  font-weight: 600;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.command-btn:hover {
+  border-color: var(--accent-color);
+  background: rgba(33, 150, 243, 0.08);
+}
+
 .primary-btn {
   padding: 10px 18px;
   border-radius: 10px;
@@ -126,6 +183,62 @@
   flex: 1;
   display: flex;
   min-height: 0;
+}
+
+.workspace-utilities {
+  display: flex;
+  gap: 20px;
+  padding: 20px 24px 0;
+}
+
+.daily-note-card {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 20px 40px rgba(13, 71, 161, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.daily-note-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.daily-note-card__header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.daily-note-card__header p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #607d8b;
+}
+
+.daily-note-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.daily-note-card textarea {
+  min-height: 90px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 12px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.daily-note-card textarea:focus {
+  outline: 2px solid rgba(33, 150, 243, 0.2);
 }
 
 .sidebar {
@@ -588,5 +701,97 @@
   border: none;
   background: transparent;
   cursor: nwse-resize;
+}
+
+.command-palette__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 12, 28, 0.55);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 120px;
+  z-index: 2000;
+}
+
+.command-palette {
+  width: min(520px, 94vw);
+  background: rgba(26, 30, 46, 0.95);
+  color: #f1f5f9;
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 30px 60px rgba(2, 12, 27, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.command-palette__input {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 16px;
+  margin-bottom: 14px;
+  background: rgba(15, 23, 42, 0.9);
+  color: inherit;
+}
+
+.command-palette__input:focus {
+  outline: 2px solid rgba(59, 130, 246, 0.6);
+}
+
+.command-palette__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.command-palette__item {
+  width: 100%;
+  border: 1px solid transparent;
+  background: rgba(148, 163, 184, 0.15);
+  color: inherit;
+  padding: 10px 14px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.command-palette__item:hover:not(:disabled),
+.command-palette__item:focus-visible {
+  border-color: rgba(96, 165, 250, 0.7);
+  background: rgba(96, 165, 250, 0.2);
+}
+
+.command-palette__item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.command-palette__shortcut {
+  background: rgba(15, 23, 42, 0.5);
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 900px) {
+  .workspace-utilities {
+    flex-direction: column;
+  }
+
+  .top-bar__inspiration {
+    order: 3;
+    width: 100%;
+  }
 }
 

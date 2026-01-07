@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ReactFlow, {
   Background,
   Controls,
@@ -10,6 +11,13 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import './App.css';
 import NoteCard from './NoteCard';
+import Landing from './Landing';
+import Login from './Login';
+import Signup from './Signup';
+import PrivateRoute from './PrivateRoute';
+import MobileApp from './MobileApp';
+import { AuthProvider } from './CustomAuthContext';
+import CommandPalette from './CommandPalette';
 
 const STORAGE_KEYS = {
   notes: 'student-notes-v1',
@@ -329,6 +337,54 @@ function StudentWorkspace() {
   const [contextMenu, setContextMenu] = useState(null);
   const [showTemplates, setShowTemplates] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [inspiration, setInspiration] = useState({
+    content: 'Loading inspiration…',
+    author: '',
+  });
+  const searchInputRef = useRef(null);
+
+  const todayKey = useMemo(() => {
+    const today = new Date();
+    return `daily-note-${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+      today.getDate(),
+    ).padStart(2, '0')}`;
+  }, []);
+
+  const [dailyNote, setDailyNote] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return localStorage.getItem(todayKey) || '';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(todayKey, dailyNote);
+  }, [todayKey, dailyNote]);
+
+  const refreshInspiration = useCallback(async () => {
+    try {
+      const response = await fetch('https://api.quotable.io/random');
+      const data = await response.json();
+      setInspiration({ content: data.content, author: data.author });
+    } catch (error) {
+      console.error('Unable to fetch inspiration quote', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshInspiration();
+  }, [refreshInspiration]);
+
+  useEffect(() => {
+    const handleCommandShortcut = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleCommandShortcut);
+    return () => window.removeEventListener('keydown', handleCommandShortcut);
+  }, []);
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -526,6 +582,24 @@ function StudentWorkspace() {
     },
     [activeFolder, folderOptions],
   );
+
+  const focusSearchInput = useCallback(() => {
+    setViewMode('canvas');
+    requestAnimationFrame(() => {
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+        searchInputRef.current.select();
+      }
+    });
+  }, []);
+
+  const appendDailyNoteToCanvas = useCallback(() => {
+    if (!dailyNote.trim()) return;
+    handleCreateNote({
+      title: `Daily Note - ${new Date().toLocaleDateString()}`,
+      content: `<p>${dailyNote}</p>`,
+    });
+  }, [dailyNote, handleCreateNote]);
 
   const handleDuplicateNote = useCallback(
     (noteId) => {
@@ -743,6 +817,85 @@ function StudentWorkspace() {
     ],
   );
 
+  const commandPaletteCommands = useMemo(
+    () => [
+      {
+        id: 'cmd-new-note',
+        label: 'Create note at canvas center',
+        shortcut: 'N',
+        action: () => handleCreateNote(),
+      },
+      {
+        id: 'cmd-canvas-view',
+        label: viewMode === 'canvas' ? 'Canvas view (active)' : 'Switch to canvas view',
+        shortcut: '1',
+        action: () => setViewMode('canvas'),
+      },
+      {
+        id: 'cmd-list-view',
+        label: viewMode === 'list' ? 'List view (active)' : 'Switch to list view',
+        shortcut: '2',
+        action: () => setViewMode('list'),
+      },
+      {
+        id: 'cmd-board-view',
+        label: viewMode === 'board' ? 'Board view (active)' : 'Switch to board view',
+        shortcut: '3',
+        action: () => setViewMode('board'),
+      },
+      {
+        id: 'cmd-toggle-snap',
+        label: snapToGrid ? 'Disable snap to grid' : 'Enable snap to grid',
+        shortcut: 'G',
+        action: () => setSnapToGrid((prev) => !prev),
+      },
+      {
+        id: 'cmd-focus-search',
+        label: 'Focus global search',
+        shortcut: '/',
+        action: focusSearchInput,
+      },
+      {
+        id: 'cmd-open-templates',
+        label: 'Open templates gallery',
+        shortcut: 'T',
+        action: () => setShowTemplates(true),
+      },
+      {
+        id: 'cmd-daily-note',
+        label: 'Send today’s note to canvas',
+        shortcut: 'D',
+        disabled: !dailyNote.trim(),
+        action: appendDailyNoteToCanvas,
+      },
+      {
+        id: 'cmd-refresh-inspiration',
+        label: 'Refresh inspiration quote',
+        shortcut: 'R',
+        action: refreshInspiration,
+      },
+      {
+        id: 'cmd-study-template',
+        label: 'Spawn Study Guide template',
+        shortcut: 'S',
+        action: () =>
+          handleCreateNote({
+            title: NOTE_TEMPLATES[1].name,
+            content: NOTE_TEMPLATES[1].content,
+          }),
+      },
+    ],
+    [
+      appendDailyNoteToCanvas,
+      dailyNote,
+      focusSearchInput,
+      handleCreateNote,
+      refreshInspiration,
+      snapToGrid,
+      viewMode,
+    ],
+  );
+
   return (
     <div className="app-shell">
       <header className="top-bar">
@@ -765,11 +918,30 @@ function StudentWorkspace() {
         <div className="top-bar__center">
           <div className="top-bar__search">
             <input
+              ref={searchInputRef}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search notes or type @ to link"
             />
           </div>
+          <div className="top-bar__inspiration">
+            <div>
+              <span className="inspiration-pill__label">Spark</span>
+              <p className="inspiration-pill__quote">“{inspiration.content}”</p>
+              {inspiration.author && <span className="inspiration-pill__author">— {inspiration.author}</span>}
+            </div>
+            <button type="button" className="tiny-btn" onClick={refreshInspiration} title="Refresh inspiration quote">
+              ↻
+            </button>
+          </div>
+          <button
+            type="button"
+            className="ghost-btn command-btn"
+            onClick={() => setCommandPaletteOpen(true)}
+            title="Command palette (Ctrl/Cmd + K)"
+          >
+            ⌘K Command
+          </button>
           <div className="view-toggle">
             <button
               type="button"
@@ -809,6 +981,30 @@ function StudentWorkspace() {
           <div className="avatar-chip">@Student</div>
         </div>
       </header>
+
+      <section className="workspace-utilities">
+        <div className="daily-note-card">
+          <div className="daily-note-card__header">
+            <div>
+              <h3>Today’s note</h3>
+              <p>{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+            </div>
+            <div className="daily-note-card__actions">
+              <button type="button" onClick={appendDailyNoteToCanvas} disabled={!dailyNote.trim()}>
+                Drop on canvas
+              </button>
+              <button type="button" className="ghost-btn" onClick={() => setDailyNote('')}>
+                Clear
+              </button>
+            </div>
+          </div>
+          <textarea
+            value={dailyNote}
+            onChange={(event) => setDailyNote(event.target.value)}
+            placeholder="Capture intent, wins, or reminders for today. Keep it here or drop it onto the canvas when ready."
+          />
+        </div>
+      </section>
 
       <div className="layout">
         <aside className="sidebar">
@@ -867,7 +1063,16 @@ function StudentWorkspace() {
                   onPaneDoubleClick={handlePaneDoubleClick}
                   snapToGrid={snapToGrid}
                   snapGrid={[20, 20]}
+                  minZoom={0.4}
+                  maxZoom={1.8}
+                  defaultViewport={{ x: 0, y: 0, zoom: 0.9 }}
+                  panOnScroll
+                  panOnDrag={[1, 2]}
+                  zoomActivationKeyCode="Meta"
+                  nodeDragThreshold={4}
+                  proOptions={{ hideAttribution: true }}
                   fitView
+                  fitViewOptions={{ padding: 0.2 }}
                 >
                   <MiniMap />
                   <Controls />
@@ -999,15 +1204,51 @@ function StudentWorkspace() {
         onUseTemplate={handleUseTemplate}
         onClose={() => setShowTemplates(false)}
       />
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        commands={commandPaletteCommands}
+      />
     </div>
+  );
+}
+
+function WorkspaceRoute() {
+  return (
+    <ReactFlowProvider>
+      <StudentWorkspace />
+    </ReactFlowProvider>
   );
 }
 
 export default function App() {
   return (
-    <ReactFlowProvider>
-      <StudentWorkspace />
-    </ReactFlowProvider>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route
+            path="/notes"
+            element={
+              <PrivateRoute>
+                <WorkspaceRoute />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/notes-mobile"
+            element={
+              <PrivateRoute>
+                <MobileApp />
+              </PrivateRoute>
+            }
+          />
+          <Route path="*" element={<Landing />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 
